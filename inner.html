@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #1f1f1f; /* light black background */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 1000px;
+            margin-top: 30px;
+            background: #000; /* black background for chat container */
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow: hidden;
+        }
+
+        .comments-section {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .comment {
+            background: #9b4dca; /* purple background for default comments */
+            color: #fff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .comment:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .comment.user {
+            background-color: #000000; /* white background for user comments */
+            color: #ffffff; /* purple color text for user comments */
+            border : 2px solid rgb(218, 58, 218)
+        }
+
+        .comment-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            position: fixed;
+            bottom: 30px;
+            width: 60%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 12px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            border: none;
+            font-size: 1rem;
+            background-color: #0b0a0a;
+            color: #ffffff;
+            resize: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            box-shadow: 0 0 8px rgba(131, 13, 227, 0.6);
+        }
+
+        button {
+            padding: 20px 40px; /* Increase size of the button */
+            background-color: #050406; /* Purple background */
+            color: white;
+            border: 4px solid #a103f6; /* Purple border */
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1.2rem; /* Increase font size */
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #a103f6; /* Glowing green on hover */
+            color: black; /* Text turns black on hover */
+            transform: translateY(-3px);
+        }
+
+
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .comment {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @media (max-width: 600px) {
+            .chat-container {
+                width: 95%;
+                padding: 10px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">
+        <h2 align="center">Casual Chat Room</h2>
+    </div>
+
+    <div class="comments-section" id="commentsSection">
+    </div>
+
+    <div class="input-container">
+        <textarea id="userComment" placeholder="Write your thoughts..." rows="3"></textarea>
+        <button id="submitComment">Post</button>
+    </div>
+</div>
+
+<script>
+    // Default comments
+    const defaultComments = [
+        { user: "Alice", text: "Hey, this is awesome! Can't wait for more updates." },
+        { user: "Bob", text: "I really love the sleek design of this page." },
+        { user: "Charlie", text: "Totally agree, the UI looks fantastic." },
+    ];
+
+    // Function to display comments
+    function displayComments() {
+        const commentsSection = document.getElementById("commentsSection");
+        commentsSection.innerHTML = ''; // Clear the previous comments
+
+        // Add each default comment
+        defaultComments.forEach(comment => {
+            const commentElement = document.createElement("div");
+            commentElement.classList.add("comment");
+
+            // Only add the 'user' class if the comment is from the logged-in user ("You")
+            if (comment.user === "You") {
+                commentElement.classList.add("user");
+            }
+
+            commentElement.innerHTML = `
+                <div class="comment-header">${comment.user}</div>
+                <p>${comment.text}</p>
+            `;
+            commentsSection.appendChild(commentElement);
+        });
+
+        // Scroll to the bottom of the comments section to show the newest comment
+        commentsSection.scrollTop = commentsSection.scrollHeight;
+    }
+
+    // Function to check toxicity via API
+    async function checkToxicity(commentText) {
+        try {
+            const response = await fetch("http://127.0.0.1:5000/check", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ text: commentText }),
+            });
+
+            if (!response.ok) {
+                throw new Error("API request failed");
+            }
+
+            const data = await response.json();
+
+            // Check toxicity thresholds
+            const toxicityThresholds = [
+                data.toxicity,
+                data.severe_toxicity,
+                data.obscene,
+                data.identity_attack,
+                data.insult,
+                data.threat,
+                data.sexual_explicit
+            ];
+
+            return toxicityThresholds.every(score => score <= 0.5);
+        } catch (error) {
+            console.error("Error checking toxicity:", error);
+            alert("An error occurred while checking your comment. Please try again later.");
+            return false;
+        }
+    }
+
+    // Display comments on page load
+    window.onload = displayComments;
+
+    // Handle new comment submission
+    document.getElementById("submitComment").addEventListener("click", async function () {
+        const userComment = document.getElementById("userComment").value.trim();
+        if (userComment) {
+            const isSafe = await checkToxicity(userComment);
+
+            if (isSafe) {
+                const newComment = { user: "You", text: userComment }; // "You" as the logged-in user
+                defaultComments.push(newComment); // Add the new comment
+                displayComments(); // Update the comments section
+                document.getElementById("userComment").value = ''; // Clear the textarea
+            } else {
+                alert("Your comment contains inappropriate content. Please revise it before posting.");
+            }
+        } else {
+            alert("Please write something before submitting.");
+        }
+    });
+</script>
+
+</body>
+</html>
